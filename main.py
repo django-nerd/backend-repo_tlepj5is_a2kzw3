@@ -1,8 +1,12 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List
+from database import create_document, get_documents
+from schemas import Application
 
-app = FastAPI()
+app = FastAPI(title="Gym Instructor API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -14,11 +18,27 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"message": "Hello from FastAPI Backend!"}
+    return {"message": "Gym Instructor Backend Running"}
 
-@app.get("/api/hello")
-def hello():
-    return {"message": "Hello from the backend API!"}
+@app.post("/api/applications")
+def submit_application(payload: Application):
+    try:
+        app_id = create_document("application", payload)
+        return {"id": app_id, "status": "received"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/applications")
+def list_applications(limit: int = 50):
+    try:
+        docs = get_documents("application", limit=limit)
+        # Convert ObjectId to string if present
+        for d in docs:
+            if "_id" in d:
+                d["id"] = str(d.pop("_id"))
+        return {"items": docs}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/test")
 def test_database():
